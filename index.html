@@ -134,6 +134,11 @@ table.budget tr.tot td{font-weight:700;border-top:2px solid var(--ink)}
 a.lnk{color:var(--sky)}
 .filebox{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-bottom:6px;overflow-wrap:anywhere}
 .fld input[type=file]{padding:6px}
+.sugg{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
+.sugg.off{opacity:.55;cursor:default}
+.sugg input{margin-top:3px;width:18px;height:18px;flex:0 0 auto;accent-color:var(--sage)}
+.sugg ul{margin:6px 0;padding-left:18px;font-size:13px;overflow-wrap:anywhere}
+.sugg .old{color:var(--muted);text-decoration:line-through}
 </style>
 </head>
 <body>
@@ -434,6 +439,76 @@ window.openFile=async path=>{
   if(error||!data){if(w)w.close();toast("Couldn't open the file"+(error?": "+error.message:"."));return;}
   if(w) w.location=data.signedUrl; else location.href=data.signedUrl;
 };
+
+// ---------- Read with AI ----------
+// The Supabase function "read-document" (supabase/functions/read-document) reads the attached file
+// and returns SUGGESTED changes. Nothing is saved until the user ticks suggestions and taps Apply.
+let aiResult=null;
+const fieldDef=(col,k)=>SCHEMA[col]&&SCHEMA[col].fields.find(f=>f.k===k);
+// Keep only fields the tracker knows, converted to the right type; drop anything invalid.
+function cleanFields(c){
+  const out=[];
+  (c.fields||[]).forEach(({field,value})=>{
+    const f=fieldDef(c.collection,field); if(!f) return;
+    let v=String(value??"").trim();
+    if(f.t==="number"){ if(v===""){v=null}else{v=Number(v.replace(/[$,\s]/g,"")); if(!isFinite(v)) return;} }
+    else if(f.t==="select"){ if(!f.o.includes(v)) return; }
+    else if(f.t==="date"){ if(v&&!/^\d{4}-\d{2}-\d{2}$/.test(v)) return; }
+    out.push({field,value:v,label:f.l,t:f.t});
+  });
+  return out;
+}
+const showVal=(v,t)=>v==null||v===""?"(empty)":t==="number"?usd(v):t==="date"?fmtD(v):String(v);
+window.readWithAI=async id=>{
+  const d=state.documents.find(x=>x.id===id); if(!d) return;
+  $("#modal").innerHTML=`<h3>Reading “${esc(d.title)}”…</h3>
+    <p class="small">Claude is reading the file and comparing it with the tracker. This usually takes under a minute; long documents can take two or three.</p>
+    <div class="mfoot"><div></div><button class="btn" onclick="closeForm()">Close</button></div>`;
+  $("#scrim").classList.add("on");
+  const {data,error}=await sb.functions.invoke("read-document",{body:{documentId:id}});
+  if(error){
+    let msg=error.message;
+    try{const b=await error.context.json(); if(b&&b.error) msg=b.error;}catch(e){}
+    $("#modal").innerHTML=`<h3>Couldn't read the file</h3><div class="warn">${esc(msg)}</div><div class="mfoot"><div></div><button class="btn" onclick="closeForm()">Close</button></div>`;
+    $("#scrim").classList.add("on"); return;
+  }
+  aiResult={documentId:id,title:d.title,...data}; renderReview();
+};
+function renderReview(){
+  const r=aiResult, ch=r.changes||[]; const colLabel=c=>SCHEMA[c]?SCHEMA[c].label:c;
+  const items=ch.map((c,i)=>{
+    const existing=c.action==="update"?(state[c.collection]||[]).find(x=>x.id===c.id):null;
+    const fields=cleanFields(c);
+    const ok=(c.action==="add"||existing)&&fields.length;
+    const name=existing&&(existing.title||existing.item||existing.text||existing.name);
+    return `<label class="sugg${ok?"":" off"}"><input type="checkbox" data-i="${i}" ${ok?"checked":"disabled"}>
+      <div><div class="t">${esc(c.label)}</div>
+      <div class="small">${c.action==="add"?"Add":"Update"} ${esc(colLabel(c.collection))}${name?` · ${esc(name)}`:""}${!ok?" · can't apply (record not found or no valid fields)":""}</div>
+      <ul>${fields.map(f=>`<li><b>${esc(f.label)}:</b> ${existing?`<span class="old">${esc(showVal(existing[f.field],f.t))}</span> → `:""}${esc(showVal(f.value,f.t))}</li>`).join("")}</ul>
+      <div class="small" style="font-style:italic">${esc(c.reason)}</div></div></label>`;
+  }).join("");
+  $("#modal").innerHTML=`<h3>Suggested updates</h3>
+    <p class="small" style="margin-top:-6px">From “${esc(r.title)}”. Untick anything you don't want, then apply.</p>
+    <p class="pre">${esc(r.summary||"")}</p>
+    ${items||`<div class="empty">No changes suggested for this document.</div>`}
+    <div class="mfoot"><div></div><div style="display:flex;gap:8px"><button class="btn" onclick="closeForm()">Cancel</button>${ch.length?`<button class="btn pri" id="applyAI">Apply selected</button>`:""}</div></div>`;
+  $("#scrim").classList.add("on");
+  if($("#applyAI")) $("#applyAI").onclick=applyAI;
+}
+async function applyAI(){
+  const btn=$("#applyAI"); btn.disabled=true; btn.textContent="Applying…";
+  const picks=[...document.querySelectorAll(".sugg input:checked")].map(x=>aiResult.changes[+x.dataset.i]);
+  let n=0;
+  for(const c of picks){
+    const existing=c.action==="update"?(state[c.collection]||[]).find(x=>x.id===c.id):null;
+    if(c.action==="update"&&!existing) continue;
+    const out={}; if(existing){const {id:_id,...rest}=existing; Object.assign(out,rest);}
+    cleanFields(c).forEach(f=>{out[f.field]=f.value});
+    out.updated=today();
+    if(await save(c.collection,existing?existing.id:newId(),out)) n++;
+  }
+  closeForm(); toast(n?`Applied ${n} change${n===1?"":"s"}.`:"Nothing applied.");
+}
 function closeForm(){$("#scrim").classList.remove("on")}
 $("#scrim").addEventListener("click",e=>{if(e.target.id==="scrim")closeForm()});
 
@@ -576,7 +651,7 @@ function vFiles(){
   <p class="small" style="margin-top:-4px">Every drawing, contract and invoice. Tap one to attach or replace its file.</p>
   <div class="list">${docs.map(d=>`<div class="row" data-col="documents" data-id="${esc(d.id)}"><div class="flex"><div><div class="t">${esc(d.title)}</div>
     <div class="m">${esc(d.from||"")}${d.date?` · ${fmtD(d.date)}`:""}${d.link&&/^https?:\/\//.test(d.link)?` · <a class="lnk" href="${esc(d.link)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">link</a>`:""}</div>
-    ${d.file?`<div style="margin-top:6px"><button class="btn sm" onclick="openFile('${esc(d.file)}')">📎 Open ${esc(d.fileName||"file")}${d.fileSize?` · ${fmtSize(d.fileSize)}`:""}</button></div>`:""}
+    ${d.file?`<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" onclick="openFile('${esc(d.file)}')">📎 Open ${esc(d.fileName||"file")}${d.fileSize?` · ${fmtSize(d.fileSize)}`:""}</button><button class="btn sm" onclick="readWithAI('${esc(d.id)}')">✨ Read with AI</button></div>`:""}
     ${d.notes?`<div class="m pre">${esc(d.notes)}</div>`:""}</div>${pill(d.kind)}</div></div>`).join("")||`<div class="empty">No files yet.</div>`}</div>
   <div class="sec"><div class="sec-h"><h2>Contacts</h2><button class="btn pri" onclick="openForm('contacts')">+ Add</button></div>
   <div class="list">${state.contacts.map(c=>`<div class="row" data-col="contacts" data-id="${esc(c.id)}"><div class="t">${esc(c.name)} <span class="small" style="font-weight:400">${esc(c.role||"")}</span></div>
