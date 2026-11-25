@@ -136,6 +136,7 @@ a.lnk{color:var(--sky)}
 .fld input[type=file]{padding:6px}
 .sugg{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
 .sugg.off{opacity:.55;cursor:default}
+.aibar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:var(--sage-2);color:var(--sage-ink);border-radius:12px;padding:9px 12px;margin-bottom:12px;font-size:14px}
 .sugg input{margin-top:3px;width:18px;height:18px;flex:0 0 auto;accent-color:var(--sage)}
 .sugg ul{margin:6px 0;padding-left:18px;font-size:13px;overflow-wrap:anywhere}
 .sugg .old{color:var(--muted);text-decoration:line-through}
@@ -443,8 +444,20 @@ window.openFile=async path=>{
 // ---------- Read with AI ----------
 // The Supabase function "read-document" (supabase/functions/read-document) reads the attached file
 // and returns SUGGESTED changes. Nothing is saved until the user ticks suggestions and taps Apply.
-let aiResult=null, aiWaiting=null;   // aiWaiting: the file whose "Reading…" popup is open
+// Several files can be read at once. Finished results wait in aiReady (in the order they finished)
+// until reviewed; only one popup is ever shown, and a banner lists what's waiting.
+let aiResult=null;                    // the result shown in the review popup
+let modalOwner=null;                  // what the popup is showing: "reading:<id>", "review:<id>", or null
 const aiBusy=new Set(), aiReady={};   // reads in progress / finished suggestions not yet applied, by file id
+const aiQueue=()=>Object.keys(aiReady).filter(id=>state.documents.some(d=>d.id===id));
+function aiBanner(){
+  const q=aiQueue(), busy=[...aiBusy].length;
+  if(!q.length&&!busy) return "";
+  const names=q.map(id=>"“"+esc(state.documents.find(d=>d.id===id).title)+"”").join(", ");
+  return `<div class="aibar"><span>${q.length?`✨ Suggestions ready for ${names}.`:""}${busy?` <span class="small">⏳ Reading ${busy} file${busy===1?"":"s"}…</span>`:""}</span>
+    ${q.length?`<button class="btn sm pri" onclick="nextReview()">Review${q.length>1?` (${q.length})`:""}</button>`:""}</div>`;
+}
+window.nextReview=()=>{const id=aiQueue()[0]; if(id){aiResult=aiReady[id];renderReview();}};
 function aiButton(id){
   if(aiBusy.has(id)) return `<button type="button" class="btn sm" onclick="readWithAI('${esc(id)}')">⏳ Reading…</button>`;
   if(aiReady[id]) return `<button type="button" class="btn sm pri" onclick="readWithAI('${esc(id)}')">✨ See suggestions</button>`;
@@ -470,7 +483,7 @@ function showReading(d){
     <p class="small">Claude is reading the file and comparing it with the tracker. This usually takes under a minute; long documents can take two or three.</p>
     <p class="small">You can close this and keep using the tracker. The button will change to <b>See suggestions</b> when it's done.</p>
     <div class="mfoot"><div></div><button class="btn" onclick="closeForm()">Close</button></div>`;
-  $("#scrim").classList.add("on"); aiWaiting=d.id;
+  $("#scrim").classList.add("on"); modalOwner="reading:"+d.id;
 }
 window.readWithAI=async (id,again)=>{
   const d=state.documents.find(x=>x.id===id); if(!d) return;
@@ -479,21 +492,23 @@ window.readWithAI=async (id,again)=>{
   delete aiReady[id]; aiBusy.add(id); render(); showReading(d);
   const {data,error}=await sb.functions.invoke("read-document",{body:{documentId:id}});
   aiBusy.delete(id);
-  const watching=aiWaiting===id&&$("#scrim").classList.contains("on");
+  // Only take over the popup if it's still showing THIS file's "Reading…" message.
+  const watching=modalOwner==="reading:"+id&&$("#scrim").classList.contains("on");
   if(error){
     let msg=error.message;
     try{const b=await error.context.json(); if(b&&b.error) msg=b.error;}catch(e){}
     render();
-    if(watching) $("#modal").innerHTML=`<h3>Couldn't read the file</h3><div class="warn">${esc(msg)}</div><div class="mfoot"><div></div><button class="btn" onclick="closeForm()">Close</button></div>`;
+    if(watching){$("#modal").innerHTML=`<h3>Couldn't read “${esc(d.title)}”</h3><div class="warn">${esc(msg)}</div><div class="mfoot"><div></div><button class="btn" onclick="closeForm()">Close</button></div>`;modalOwner="error:"+id;}
     else toast(`Couldn't read “${d.title}”: ${msg}`);
     return;
   }
   aiReady[id]={documentId:id,title:d.title,...data}; render();
   if(watching){aiResult=aiReady[id];renderReview();}
-  else toast(`Suggestions are ready for “${d.title}”. Open it in Files to see them.`);
+  else toast(`Suggestions are ready for “${d.title}”.`);
 };
 function renderReview(){
   const r=aiResult, ch=r.changes||[]; const colLabel=c=>SCHEMA[c]?SCHEMA[c].label:c;
+  const others=aiQueue().filter(id=>id!==r.documentId).length;
   const items=ch.map((c,i)=>{
     const existing=c.action==="update"?(state[c.collection]||[]).find(x=>x.id===c.id):null;
     const fields=cleanFields(c);
@@ -506,16 +521,24 @@ function renderReview(){
       <div class="small" style="font-style:italic">${esc(c.reason)}</div></div></label>`;
   }).join("");
   $("#modal").innerHTML=`<h3>Suggested updates</h3>
-    <p class="small" style="margin-top:-6px">From “${esc(r.title)}”. Untick anything you don't want, then apply.</p>
+    <p class="small" style="margin-top:-6px">From “${esc(r.title)}”. Untick anything you don't want, then apply.${others?` ${others} more file${others===1?" is":"s are"} waiting; ${others===1?"it":"the next one"} opens after this.`:""}</p>
     <p class="pre">${esc(r.summary||"")}</p>
     ${items||`<div class="empty">No changes suggested for this document.</div>`}
-    <div class="mfoot"><div><button class="btn" onclick="readWithAI('${esc(r.documentId)}',true)">Read again</button></div><div style="display:flex;gap:8px"><button class="btn" onclick="closeForm()">Close</button>${ch.length?`<button class="btn pri" id="applyAI">Apply selected</button>`:""}</div></div>`;
-  $("#scrim").classList.add("on");
+    <div class="mfoot"><div><button class="btn" onclick="readWithAI('${esc(r.documentId)}',true)">Read again</button></div><div style="display:flex;gap:8px"><button class="btn" onclick="closeForm()">Close</button>${ch.length?`<button class="btn pri" id="applyAI">Apply selected</button>`:`<button class="btn pri" id="doneAI">Done</button>`}</div></div>`;
+  $("#scrim").classList.add("on"); modalOwner="review:"+r.documentId;
   if($("#applyAI")) $("#applyAI").onclick=applyAI;
+  if($("#doneAI")) $("#doneAI").onclick=()=>finishReview(0);
+}
+// After a review is applied (or dismissed with Done), drop it and open the next waiting one.
+function finishReview(n){
+  delete aiReady[aiResult.documentId]; render();
+  if(n!=null) toast(n?`Applied ${n} change${n===1?"":"s"}.`:"Nothing applied.");
+  if(aiQueue().length) nextReview(); else closeForm();
 }
 async function applyAI(){
   const btn=$("#applyAI"); btn.disabled=true; btn.textContent="Applying…";
-  const picks=[...document.querySelectorAll(".sugg input:checked")].map(x=>aiResult.changes[+x.dataset.i]);
+  const r=aiResult;   // keep hold of this review even if another read finishes meanwhile
+  const picks=[...document.querySelectorAll(".sugg input:checked")].map(x=>r.changes[+x.dataset.i]);
   let n=0;
   for(const c of picks){
     const existing=c.action==="update"?(state[c.collection]||[]).find(x=>x.id===c.id):null;
@@ -525,10 +548,9 @@ async function applyAI(){
     out.updated=today();
     if(await save(c.collection,existing?existing.id:newId(),out)) n++;
   }
-  delete aiReady[aiResult.documentId];
-  closeForm(); render(); toast(n?`Applied ${n} change${n===1?"":"s"}.`:"Nothing applied.");
+  aiResult=r; finishReview(n);
 }
-function closeForm(){$("#scrim").classList.remove("on");aiWaiting=null}
+function closeForm(){$("#scrim").classList.remove("on");modalOwner=null}
 $("#scrim").addEventListener("click",e=>{if(e.target.id==="scrim")closeForm()});
 
 // ---------- pills ----------
@@ -683,7 +705,7 @@ function render(){
   $("#tabs").style.display=session?"":"none";
   if(!session){$("#view").innerHTML=vSignin();return;}
   document.querySelectorAll("#tabs a").forEach(a=>a.classList.toggle("on",a.dataset.v===view));
-  $("#view").innerHTML=VIEWS[view]();
+  $("#view").innerHTML=aiBanner()+VIEWS[view]();
 }
 $("#view").addEventListener("click",e=>{
   const r=e.target.closest("[data-col][data-id]"); if(!r||e.target.closest("button,a")) return;
