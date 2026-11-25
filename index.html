@@ -5,20 +5,56 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Garden Tracker</title>
 <meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#f6f3ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171a17" media="(prefers-color-scheme: dark)">
+<script>
+// Apply the saved theme before the page draws, so it doesn't flash light first.
+try{const t=localStorage.getItem("theme");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t;}catch(e){}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{
-  --bg:#f6f3ec; --card:#fffdf8; --ink:#26302a; --muted:#6b736c; --line:#e3ded2;
-  --sage:#5f7a5a; --sage-2:#dfe8d9; --terra:#b8613f; --terra-2:#f4e0d6;
-  --gold:#c49a3a; --gold-2:#f5ebd2; --sky:#4f7f8c; --sky-2:#dcebee; --red:#a8452f;
+  color-scheme:light;
+  --bg:#f6f3ec; --card:#fffdf8; --ink:#26302a; --muted:#6b736c; --line:#e3ded2; --line-2:#cfc8b8;
+  --input:#fff; --hover:#faf7f0; --cat:#f1ede3; --track:#ece7db; --on-accent:#fff;
+  --sage:#5f7a5a; --sage-2:#dfe8d9; --sage-ink:#3f5a3b;
+  --terra:#b8613f; --terra-2:#f4e0d6; --terra-ink:#8d4529; --warn-ink:#7a3a22;
+  --gold:#c49a3a; --gold-2:#f5ebd2; --gold-ink:#7e6020;
+  --sky:#4f7f8c; --sky-2:#dcebee; --sky-ink:#33606b;
+  --grey-2:#ece9e1; --grey-ink:#666; --red:#a8452f; --danger-line:#e7c3b8;
+  --committed:#a9bd9f; --estimated:#e4d6b3; --scrim:rgba(30,35,30,.45);
   --r:14px;
+}
+/* Dark palette: same garden colours, lifted for a dark background. Applied when the
+   device is in dark mode (unless switched to Light), or when switched to Dark. */
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --bg:#171a17; --card:#212621; --ink:#e7e5dd; --muted:#9ba39c; --line:#323932; --line-2:#4a534a;
+  --input:#1b1f1b; --hover:#283028; --cat:#2a302a; --track:#2e342e; --on-accent:#132012;
+  --sage:#8fb087; --sage-2:#2b3a29; --sage-ink:#b9d2b1;
+  --terra:#d98a68; --terra-2:#46291e; --terra-ink:#f0b89f; --warn-ink:#f3c6b2;
+  --gold:#d9b25a; --gold-2:#3b311f; --gold-ink:#e8cc8a;
+  --sky:#7fb0bd; --sky-2:#1e3338; --sky-ink:#a9d0da;
+  --grey-2:#2e322e; --grey-ink:#b2b7b0; --red:#e3806a; --danger-line:#6b3a2e;
+  --committed:#5d7a56; --estimated:#6e603d; --scrim:rgba(0,0,0,.6);
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#171a17; --card:#212621; --ink:#e7e5dd; --muted:#9ba39c; --line:#323932; --line-2:#4a534a;
+  --input:#1b1f1b; --hover:#283028; --cat:#2a302a; --track:#2e342e; --on-accent:#132012;
+  --sage:#8fb087; --sage-2:#2b3a29; --sage-ink:#b9d2b1;
+  --terra:#d98a68; --terra-2:#46291e; --terra-ink:#f0b89f; --warn-ink:#f3c6b2;
+  --gold:#d9b25a; --gold-2:#3b311f; --gold-ink:#e8cc8a;
+  --sky:#7fb0bd; --sky-2:#1e3338; --sky-ink:#a9d0da;
+  --grey-2:#2e322e; --grey-ink:#b2b7b0; --red:#e3806a; --danger-line:#6b3a2e;
+  --committed:#5d7a56; --estimated:#6e603d; --scrim:rgba(0,0,0,.6);
 }
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Inter,system-ui,sans-serif}
 h1,h2,h3{font-family:Fraunces,Georgia,serif;font-weight:600;margin:0}
-button{font:inherit;cursor:pointer}
+button{font:inherit;cursor:pointer;color:var(--ink)}
 .wrap{max-width:980px;margin:0 auto;padding:16px 14px 90px}
 header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:4px 0 14px}
 header.top h1{font-size:24px;line-height:1.1}
@@ -26,7 +62,7 @@ header.top .sub{color:var(--muted);font-size:13px;margin-top:4px}
 nav.tabs{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;gap:6px;overflow-x:auto;padding:8px 0 10px;scrollbar-width:none}
 nav.tabs::-webkit-scrollbar{display:none}
 nav.tabs a{flex:0 0 auto;padding:7px 13px;border-radius:999px;color:var(--ink);text-decoration:none;font-weight:500;font-size:14px;border:1px solid var(--line);background:var(--card)}
-nav.tabs a.on{background:var(--sage);border-color:var(--sage);color:#fff}
+nav.tabs a.on{background:var(--sage);border-color:var(--sage);color:var(--on-accent)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px}
 .grid{display:grid;gap:10px}
 .kpis{grid-template-columns:repeat(2,1fr)}
@@ -38,20 +74,20 @@ nav.tabs a.on{background:var(--sage);border-color:var(--sage);color:#fff}
 .sec-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
 .sec-h h2{font-size:19px}
 .btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:7px 12px;font-weight:500}
-.btn.pri{background:var(--sage);border-color:var(--sage);color:#fff}
-.btn.danger{color:var(--red);border-color:#e7c3b8}
+.btn.pri{background:var(--sage);border-color:var(--sage);color:var(--on-accent)}
+.btn.danger{color:var(--red);border-color:var(--danger-line)}
 .btn.sm{padding:4px 9px;font-size:13px}
 .list{display:grid;gap:8px}
 .row{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 12px;cursor:pointer}
-.row:hover{border-color:#cfc8b8}
+.row:hover{border-color:var(--line-2)}
 .row .t{font-weight:600}
 .row .m{color:var(--muted);font-size:13px;margin-top:2px}
 .row .flex{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
-.pill{display:inline-block;font-size:12px;font-weight:500;padding:2px 9px;border-radius:999px;white-space:nowrap;background:#eee;color:#555}
-.p-green{background:var(--sage-2);color:#3f5a3b}.p-terra{background:var(--terra-2);color:#8d4529}
-.p-gold{background:var(--gold-2);color:#7e6020}.p-sky{background:var(--sky-2);color:#33606b}.p-grey{background:#ece9e1;color:#666}
+.pill{display:inline-block;font-size:12px;font-weight:500;padding:2px 9px;border-radius:999px;white-space:nowrap;background:var(--grey-2);color:var(--grey-ink)}
+.p-green{background:var(--sage-2);color:var(--sage-ink)}.p-terra{background:var(--terra-2);color:var(--terra-ink)}
+.p-gold{background:var(--gold-2);color:var(--gold-ink)}.p-sky{background:var(--sky-2);color:var(--sky-ink)}.p-grey{background:var(--grey-2);color:var(--grey-ink)}
 .money{font-variant-numeric:tabular-nums;white-space:nowrap}
-.bar{height:12px;border-radius:99px;background:#ece7db;overflow:hidden;display:flex;margin:10px 0 6px}
+.bar{height:12px;border-radius:99px;background:var(--track);overflow:hidden;display:flex;margin:10px 0 6px}
 .bar span{display:block;height:100%}
 .legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted)}
 .legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:middle}
@@ -61,14 +97,14 @@ table.budget th:first-child{text-align:left}
 table.budget td{padding:8px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
 table.budget td:first-child{text-align:left}
 table.budget tr.item{cursor:pointer}
-table.budget tr.item:hover td{background:#faf7f0}
-table.budget tr.cat td{background:#f1ede3;font-weight:600;font-size:13px}
+table.budget tr.item:hover td{background:var(--hover)}
+table.budget tr.cat td{background:var(--cat);font-weight:600;font-size:13px}
 table.budget tr.tot td{font-weight:700;border-top:2px solid var(--ink)}
 .tbl{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:var(--r)}
 .small{font-size:12px;color:var(--muted)}
 .filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
 .filters button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:4px 11px;font-size:13px}
-.filters button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.filters button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .phase{margin:16px 0 8px;font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
 .tl{border-left:2px solid var(--line);margin-left:6px;padding-left:14px;display:grid;gap:8px}
 .tl .row{position:relative}
@@ -79,9 +115,9 @@ table.budget tr.tot td{font-weight:700;border-top:2px solid var(--ink)}
 .pre{white-space:pre-wrap}
 .empty{color:var(--muted);font-size:14px;padding:12px;text-align:center;border:1px dashed var(--line);border-radius:12px}
 .status{font-size:13px;color:var(--muted);padding:8px 0}
-.warn{background:var(--terra-2);color:#7a3a22;border-radius:10px;padding:9px 12px;font-size:13px;margin-bottom:10px}
+.warn{background:var(--terra-2);color:var(--warn-ink);border-radius:10px;padding:9px 12px;font-size:13px;margin-bottom:10px}
 /* modal */
-.scrim{position:fixed;inset:0;background:rgba(30,35,30,.45);display:none;align-items:flex-end;justify-content:center;z-index:20}
+.scrim{position:fixed;inset:0;background:var(--scrim);display:none;align-items:flex-end;justify-content:center;z-index:20}
 .scrim.on{display:flex}
 @media(min-width:720px){.scrim{align-items:center}}
 .modal{background:var(--card);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px}
@@ -89,12 +125,12 @@ table.budget tr.tot td{font-weight:700;border-top:2px solid var(--ink)}
 .modal h3{font-size:19px;margin-bottom:12px}
 .fld{display:grid;gap:4px;margin-bottom:11px}
 .fld label{font-size:12px;color:var(--muted);font-weight:500}
-.fld input,.fld select,.fld textarea{font:inherit;border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#fff;color:var(--ink);width:100%}
+.fld input,.fld select,.fld textarea{font:inherit;border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:var(--input);color:var(--ink);width:100%}
 .fld textarea{min-height:70px;resize:vertical}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
 .mfoot{display:flex;justify-content:space-between;gap:8px;margin-top:6px;position:sticky;bottom:-18px;background:var(--card);padding:10px 0}
-.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 14px;border-radius:10px;font-size:14px;display:none;z-index:30;max-width:90vw}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:10px;font-size:14px;display:none;z-index:30;max-width:90vw}
 a.lnk{color:var(--sky)}
 </style>
 </head>
@@ -105,10 +141,13 @@ a.lnk{color:var(--sky)}
       <h1>Garden Tracker</h1>
       <div class="sub" id="subline">Backyard renovation</div>
     </div>
-    <div id="who" style="display:none;text-align:right">
-      <div class="small" id="whoEmail"></div>
+    <div style="text-align:right">
+      <button class="btn sm" id="theme" title="Switch between automatic, dark and light"></button>
+    <div id="who" style="display:none">
+      <div class="small" id="whoEmail" style="margin-top:6px"></div>
       <button class="btn sm" id="changepw" style="margin-top:4px">Change password</button>
       <button class="btn sm" id="signout" style="margin-top:4px">Sign out</button>
+    </div>
     </div>
   </header>
   <nav class="tabs" id="tabs">
@@ -257,6 +296,21 @@ window.doSignin=async e=>{
   location.reload();
 };
 $("#signout").onclick=async()=>{await sb.auth.signOut();location.reload()};
+
+// ---------- theme ----------
+// Auto follows the device's light/dark setting; Dark and Light override it on this device.
+const THEMES=["auto","dark","light"], THEME_LABEL={auto:"◐ Auto",dark:"☾ Dark",light:"☀ Light"};
+function getTheme(){try{const t=localStorage.getItem("theme");return THEMES.includes(t)?t:"auto"}catch(e){return "auto"}}
+function applyTheme(t){
+  if(t==="auto") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme=t;
+  $("#theme").textContent=THEME_LABEL[t];
+}
+$("#theme").onclick=()=>{
+  const t=THEMES[(THEMES.indexOf(getTheme())+1)%THEMES.length];
+  try{localStorage.setItem("theme",t)}catch(e){}
+  applyTheme(t);
+};
+applyTheme(getTheme());
 $("#changepw").onclick=()=>{
   $("#modal").innerHTML=`<h3>Change your password</h3><form id="pwf">
   <div class="fld"><label>New password (at least 8 characters)</label><input name="p1" type="password" autocomplete="new-password" minlength="8" required></div>
@@ -384,10 +438,10 @@ function vOverview(){
     </div>
     <div class="bar">
       <span style="width:${t.paid/scale*100}%;background:var(--sage)"></span>
-      <span style="width:${Math.max(0,t.com-t.paid)/scale*100}%;background:#a9bd9f"></span>
-      <span style="width:${Math.max(0,t.fc-t.com)/scale*100}%;background:#e4d6b3"></span>
+      <span style="width:${Math.max(0,t.com-t.paid)/scale*100}%;background:var(--committed)"></span>
+      <span style="width:${Math.max(0,t.fc-t.com)/scale*100}%;background:var(--estimated)"></span>
     </div>
-    <div class="legend"><span><i style="background:var(--sage)"></i>Paid</span><span><i style="background:#a9bd9f"></i>Committed, not paid</span><span><i style="background:#e4d6b3"></i>Estimated, not committed</span>${target?`<span>Bar = ${t.fc>target?"forecast (over target)":"target"}</span>`:""}</div>
+    <div class="legend"><span><i style="background:var(--sage)"></i>Paid</span><span><i style="background:var(--committed)"></i>Committed, not paid</span><span><i style="background:var(--estimated)"></i>Estimated, not committed</span>${target?`<span>Bar = ${t.fc>target?"forecast (over target)":"target"}</span>`:""}</div>
     <div class="small" style="margin-top:8px">Construction lines are still blank, so the forecast is mostly design fees for now.</div>
   </div>
   <div class="sec">
