@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Garden Tracker</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{
+  --bg:#f6f3ec; --card:#fffdf8; --ink:#26302a; --muted:#6b736c; --line:#e3ded2;
+  --sage:#5f7a5a; --sage-2:#dfe8d9; --terra:#b8613f; --terra-2:#f4e0d6;
+  --gold:#c49a3a; --gold-2:#f5ebd2; --sky:#4f7f8c; --sky-2:#dcebee; --red:#a8452f;
+  --r:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Inter,system-ui,sans-serif}
+h1,h2,h3{font-family:Fraunces,Georgia,serif;font-weight:600;margin:0}
+button{font:inherit;cursor:pointer}
+.wrap{max-width:980px;margin:0 auto;padding:16px 14px 90px}
+header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:4px 0 14px}
+header.top h1{font-size:24px;line-height:1.1}
+header.top .sub{color:var(--muted);font-size:13px;margin-top:4px}
+nav.tabs{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;gap:6px;overflow-x:auto;padding:8px 0 10px;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs a{flex:0 0 auto;padding:7px 13px;border-radius:999px;color:var(--ink);text-decoration:none;font-weight:500;font-size:14px;border:1px solid var(--line);background:var(--card)}
+nav.tabs a.on{background:var(--sage);border-color:var(--sage);color:#fff}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.grid{display:grid;gap:10px}
+.kpis{grid-template-columns:repeat(2,1fr)}
+@media(min-width:720px){.kpis{grid-template-columns:repeat(4,1fr)}}
+.kpi .lab{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.kpi .val{font-family:Fraunces,serif;font-size:24px;margin-top:4px}
+.kpi .note{color:var(--muted);font-size:12px;margin-top:2px}
+.sec{margin-top:22px}
+.sec-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.sec-h h2{font-size:19px}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:7px 12px;font-weight:500}
+.btn.pri{background:var(--sage);border-color:var(--sage);color:#fff}
+.btn.danger{color:var(--red);border-color:#e7c3b8}
+.btn.sm{padding:4px 9px;font-size:13px}
+.list{display:grid;gap:8px}
+.row{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 12px;cursor:pointer}
+.row:hover{border-color:#cfc8b8}
+.row .t{font-weight:600}
+.row .m{color:var(--muted);font-size:13px;margin-top:2px}
+.row .flex{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.pill{display:inline-block;font-size:12px;font-weight:500;padding:2px 9px;border-radius:999px;white-space:nowrap;background:#eee;color:#555}
+.p-green{background:var(--sage-2);color:#3f5a3b}.p-terra{background:var(--terra-2);color:#8d4529}
+.p-gold{background:var(--gold-2);color:#7e6020}.p-sky{background:var(--sky-2);color:#33606b}.p-grey{background:#ece9e1;color:#666}
+.money{font-variant-numeric:tabular-nums;white-space:nowrap}
+.bar{height:12px;border-radius:99px;background:#ece7db;overflow:hidden;display:flex;margin:10px 0 6px}
+.bar span{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:middle}
+table.budget{width:100%;border-collapse:collapse;font-size:14px}
+table.budget th{font-size:12px;color:var(--muted);text-align:right;font-weight:500;padding:6px 8px;border-bottom:1px solid var(--line)}
+table.budget th:first-child{text-align:left}
+table.budget td{padding:8px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
+table.budget td:first-child{text-align:left}
+table.budget tr.item{cursor:pointer}
+table.budget tr.item:hover td{background:#faf7f0}
+table.budget tr.cat td{background:#f1ede3;font-weight:600;font-size:13px}
+table.budget tr.tot td{font-weight:700;border-top:2px solid var(--ink)}
+.tbl{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:var(--r)}
+.small{font-size:12px;color:var(--muted)}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.filters button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:4px 11px;font-size:13px}
+.filters button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.phase{margin:16px 0 8px;font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.tl{border-left:2px solid var(--line);margin-left:6px;padding-left:14px;display:grid;gap:8px}
+.tl .row{position:relative}
+.tl .row:before{content:"";position:absolute;left:-22px;top:15px;width:12px;height:12px;border-radius:50%;background:var(--card);border:2px solid var(--line)}
+.tl .row.done:before{background:var(--sage);border-color:var(--sage)}
+.tl .row.prog:before{background:var(--gold);border-color:var(--gold)}
+.tl .row.blk:before{background:var(--red);border-color:var(--red)}
+.pre{white-space:pre-wrap}
+.empty{color:var(--muted);font-size:14px;padding:12px;text-align:center;border:1px dashed var(--line);border-radius:12px}
+.status{font-size:13px;color:var(--muted);padding:8px 0}
+.warn{background:var(--terra-2);color:#7a3a22;border-radius:10px;padding:9px 12px;font-size:13px;margin-bottom:10px}
+/* modal */
+.scrim{position:fixed;inset:0;background:rgba(30,35,30,.45);display:none;align-items:flex-end;justify-content:center;z-index:20}
+.scrim.on{display:flex}
+@media(min-width:720px){.scrim{align-items:center}}
+.modal{background:var(--card);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px}
+@media(min-width:720px){.modal{border-radius:18px}}
+.modal h3{font-size:19px;margin-bottom:12px}
+.fld{display:grid;gap:4px;margin-bottom:11px}
+.fld label{font-size:12px;color:var(--muted);font-weight:500}
+.fld input,.fld select,.fld textarea{font:inherit;border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#fff;color:var(--ink);width:100%}
+.fld textarea{min-height:70px;resize:vertical}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.mfoot{display:flex;justify-content:space-between;gap:8px;margin-top:6px;position:sticky;bottom:-18px;background:var(--card);padding:10px 0}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 14px;border-radius:10px;font-size:14px;display:none;z-index:30;max-width:90vw}
+a.lnk{color:var(--sky)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Garden Tracker</h1>
+      <div class="sub" id="subline">Backyard renovation</div>
+    </div>
+    <div id="who" style="display:none;text-align:right">
+      <div class="small" id="whoEmail"></div>
+      <button class="btn sm" id="changepw" style="margin-top:4px">Change password</button>
+      <button class="btn sm" id="signout" style="margin-top:4px">Sign out</button>
+    </div>
+  </header>
+  <nav class="tabs" id="tabs">
+    <a href="#overview" data-v="overview">Overview</a>
+    <a href="#budget" data-v="budget">Budget</a>
+    <a href="#schedule" data-v="schedule">Schedule</a>
+    <a href="#decisions" data-v="decisions">Decisions</a>
+    <a href="#questions" data-v="questions">Questions</a>
+    <a href="#files" data-v="files">Files &amp; contacts</a>
+  </nav>
+  <div id="status" class="status">Loading project data…</div>
+  <main id="view"></main>
+</div>
+
+<div class="scrim" id="scrim"><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------- schema ----------
+const SCHEMA = {
+  budget: { label:"budget line", fields:[
+    {k:"item",l:"Item",t:"text",req:1},
+    {k:"category",l:"Category",t:"select",o:["Design fees","Design oversight","Construction","Plants & materials","Furniture & purchases","Permits & surveys","Contingency"]},
+    {k:"vendor",l:"Vendor / who",t:"text"},
+    {k:"status",l:"Status",t:"select",o:["Estimate","Quoted","Contracted","Invoiced","Paid"]},
+    {k:"estimate",l:"Estimate ($)",t:"number",g:"m"},{k:"committed",l:"Committed ($)",t:"number",g:"m"},{k:"paid",l:"Paid ($)",t:"number",g:"m"},
+    {k:"notes",l:"Notes",t:"textarea"}]},
+  milestones: { label:"milestone", fields:[
+    {k:"title",l:"Milestone",t:"text",req:1},
+    {k:"phase",l:"Phase",t:"select",o:["Setup","Design","Bidding","Construction","Close-out"]},
+    {k:"status",l:"Status",t:"select",o:["Not started","In progress","Done","Blocked"]},
+    {k:"owner",l:"Owner",t:"select",o:["Fi","Us","Contractor","Other"]},
+    {k:"planned",l:"Planned date",t:"date",g:"d"},{k:"actual",l:"Actual date",t:"date",g:"d"},
+    {k:"sort",l:"Order",t:"number"},
+    {k:"notes",l:"Notes",t:"textarea"}]},
+  decisions: { label:"decision", fields:[
+    {k:"title",l:"Decision",t:"text",req:1},
+    {k:"area",l:"Area",t:"select",o:["Budget & scope","Terrace","Pool","Hardscape & paths","Planting","Trees & hedges","Lighting","Fire & water","Seating & dining","Walls & structures","Other"]},
+    {k:"status",l:"Status",t:"select",o:["Open","Exploring","Decided","Deferred"]},
+    {k:"options",l:"Options being considered",t:"textarea"},
+    {k:"choice",l:"What we chose",t:"text"},
+    {k:"cost",l:"Cost impact ($)",t:"number",g:"c"},{k:"date",l:"Decided on",t:"date",g:"c"},
+    {k:"decidedBy",l:"Signed off by",t:"text"},
+    {k:"notes",l:"Notes",t:"textarea"}]},
+  questions: { label:"question", fields:[
+    {k:"text",l:"Question",t:"textarea",req:1},
+    {k:"forWhom",l:"Who needs to answer",t:"select",o:["Fi","Us","Contractor","Other"]},
+    {k:"status",l:"Status",t:"select",o:["Open","Answered"]},
+    {k:"asked",l:"Raised on",t:"date"},
+    {k:"answer",l:"Answer",t:"textarea"}]},
+  documents: { label:"file", fields:[
+    {k:"title",l:"Title",t:"text",req:1},
+    {k:"kind",l:"Type",t:"select",o:["Survey","Design","Contract","Invoice","Quote","Photo","Other"]},
+    {k:"from",l:"From",t:"text"},
+    {k:"date",l:"Date",t:"date"},
+    {k:"link",l:"Link (optional)",t:"text"},
+    {k:"notes",l:"Notes",t:"textarea"}]},
+  contacts: { label:"contact", fields:[
+    {k:"name",l:"Name",t:"text",req:1},{k:"role",l:"Role",t:"text"},{k:"company",l:"Company",t:"text"},
+    {k:"phone",l:"Phone",t:"text"},{k:"email",l:"Email",t:"text"},{k:"notes",l:"Notes",t:"textarea"}]},
+};
+const COLS = Object.keys(SCHEMA);
+const state = {meta:{}}; COLS.forEach(c=>state[c]=[]);
+let db=null, canWrite=true, view="overview";
+const filt={decisions:"Active",questions:"Open"};
+
+// ---------- utils ----------
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const num=v=>{const n=Number(v);return isFinite(n)?n:0};
+const usd=n=>"$"+Math.round(num(n)).toLocaleString("en-US");
+// Local calendar date (not UTC), so evenings in LA don't roll over to tomorrow.
+const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+const fmtD=d=>{if(!d)return"";const x=new Date(d+"T12:00:00");return isNaN(x)?d:x.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})};
+function toast(m){const t=$("#toast");t.textContent=m;t.style.display="block";clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display="none",3200)}
+const forecast=b=>num(b.committed)>0?num(b.committed):num(b.estimate);
+
+// ---------- data (Supabase) ----------
+// The publishable key is meant to be public; the database's row-level security
+// (supabase/schema.sql) is what limits access to the members list.
+const SUPABASE_URL="https://uplxklezrgfnujsdfaoy.supabase.co";
+const SUPABASE_KEY="sb_publishable_o7OVwqTwKu-IkjWXF2P5pg_C7Lbvylo";
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{flowType:"implicit",persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+let session=null;
+const signin={sent:false,email:"",busy:false,err:""};
+
+// Thin layer that mimics the collection/doc API the views were written against
+// (onSnapshot / set / delete / add), backed by the single `docs` table.
+function makeDb(){
+  const store={}, subs={}, errs=[];
+  const bucket=c=>store[c]||(store[c]=new Map());
+  const colSnap=c=>({metadata:{fromCache:false},docs:[...bucket(c)].map(([id,d])=>({id,data:()=>d}))});
+  const docSnap=(c,id)=>{const d=bucket(c).get(id);return {metadata:{fromCache:false},exists:!!d,data:()=>d}};
+  const emit=c=>(subs[c]||[]).forEach(f=>f());
+  const put=(c,id,d)=>{bucket(c).set(id,d);emit(c)};
+  const drop=(c,id)=>{bucket(c).delete(id);emit(c)};
+  const sub=(c,f,err)=>{(subs[c]||(subs[c]=[])).push(f);if(err)errs.push(err)};
+  const fail=e=>{const x=new Error(e.message||"Request failed");x.code=e.code==="42501"?"invalid_argument":e.code;return x};
+  async function loadAll(){
+    const {data,error}=await sb.from("docs").select("collection,id,data").range(0,9999);
+    if(error) throw fail(error);
+    Object.values(store).forEach(m=>m.clear());
+    data.forEach(r=>bucket(r.collection).set(r.id,r.data||{}));
+    Object.keys(subs).forEach(emit);
+  }
+  function docRef(c,id){return {
+    onSnapshot(cb,err){sub(c,()=>cb(docSnap(c,id)),err)},
+    async set(d){const {error}=await sb.from("docs").upsert({collection:c,id,data:d});if(error)throw fail(error);put(c,id,d)},
+    async delete(){const {error}=await sb.from("docs").delete().eq("collection",c).eq("id",id);if(error)throw fail(error);drop(c,id)}
+  }}
+  return {
+    collection:c=>({
+      onSnapshot(cb,err){sub(c,()=>cb(colSnap(c)),err)},
+      doc:id=>docRef(c,id),
+      async add(d){const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);await docRef(c,id).set(d);return {id}}
+    }),
+    doc:path=>{const [c,id]=path.split("/");return docRef(c,id)},
+    async start(){
+      // Live updates from the other person; reload everything whenever the connection (re)opens.
+      sb.channel("docs").on("postgres_changes",{event:"*",schema:"public",table:"docs"},p=>{
+        if(p.eventType==="DELETE"){if(p.old&&p.old.collection)drop(p.old.collection,p.old.id)}
+        else if(p.new) put(p.new.collection,p.new.id,p.new.data||{});
+      }).subscribe(st=>{if(st==="SUBSCRIBED")loadAll().catch(()=>{})});
+      document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")loadAll().catch(()=>{})});
+      try{await loadAll()}catch(e){errs.forEach(h=>h(e))}
+    }
+  };
+}
+
+// ---------- sign-in ----------
+function vSignin(){
+  return `<form class="card" style="max-width:440px;margin:30px auto" onsubmit="doSignin(event)">
+    <h2 style="font-size:20px;margin-bottom:8px">Sign in</h2>
+    <p class="small" style="margin-top:0">You'll stay signed in on this device until you sign out.</p>
+    ${signin.err?`<div class="warn">${esc(signin.err)}</div>`:""}
+    <div class="fld"><label>Email</label><input name="email" type="email" autocomplete="username" required value="${esc(signin.email)}"></div>
+    <div class="fld"><label>Password</label><input name="password" type="password" autocomplete="current-password" required></div>
+    <button class="btn pri" ${signin.busy?"disabled":""}>${signin.busy?"Signing in…":"Sign in"}</button></form>`;
+}
+window.doSignin=async e=>{
+  e.preventDefault(); const fd=new FormData(e.target);
+  signin.email=fd.get("email").trim(); signin.busy=true; signin.err=""; render();
+  const {error}=await sb.auth.signInWithPassword({email:signin.email,password:fd.get("password")});
+  signin.busy=false;
+  if(error){signin.err=/invalid login/i.test(error.message)?"Wrong email or password.":("Couldn't sign in: "+error.message);render();return;}
+  location.reload();
+};
+$("#signout").onclick=async()=>{await sb.auth.signOut();location.reload()};
+$("#changepw").onclick=()=>{
+  $("#modal").innerHTML=`<h3>Change your password</h3><form id="pwf">
+  <div class="fld"><label>New password (at least 8 characters)</label><input name="p1" type="password" autocomplete="new-password" minlength="8" required></div>
+  <div class="fld"><label>Type it again</label><input name="p2" type="password" autocomplete="new-password" minlength="8" required></div>
+  <div class="mfoot"><div></div><div style="display:flex;gap:8px"><button type="button" class="btn" onclick="closeForm()">Cancel</button><button class="btn pri">Save</button></div></div></form>`;
+  $("#scrim").classList.add("on");
+  $("#pwf").onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);
+    if(fd.get("p1")!==fd.get("p2")){toast("The two passwords don't match.");return;}
+    const {error}=await sb.auth.updateUser({password:fd.get("p1")});
+    if(error){toast("Couldn't change it: "+error.message);return;}
+    closeForm();toast("Password changed.");};
+};
+
+(async function init(){
+  const hashErr=new URLSearchParams(location.hash.slice(1)).get("error_description");
+  const {data}=await sb.auth.getSession(); session=data.session;
+  if(/access_token|error_description/.test(location.hash)){history.replaceState(null,"",location.pathname+"#overview");route();}
+  sb.auth.onAuthStateChange((ev,s)=>{session=s;if(ev==="SIGNED_OUT")render();});
+  if(!session){
+    $("#status").textContent="";
+    if(hashErr) signin.err=hashErr;
+    render(); return;
+  }
+  $("#who").style.display=""; $("#whoEmail").textContent=session.user.email;
+  render();
+  let timer=setTimeout(()=>{$("#status").textContent="Can't reach the project data yet — it may be out of date."},10000);
+  const {data:isMember,error:memErr}=await sb.rpc("is_member");
+  if(memErr||!isMember){clearTimeout(timer);$("#status").textContent=memErr?"The project data couldn't be loaded right now.":`${session.user.email} isn't on this project's member list.`;return;}
+  db=makeDb();
+  let loaded=new Set();
+  const done=(k,snap)=>{ if(!snap.metadata.fromCache){loaded.add(k); if(loaded.size>=COLS.length+1){clearTimeout(timer);$("#status").textContent="";}} };
+  const err=e=>{clearTimeout(timer);$("#status").textContent="The project data couldn't be loaded right now."};
+  COLS.forEach(c=>{
+    db.collection(c).onSnapshot(s=>{state[c]=s.docs.map(d=>({id:d.id,...d.data()}));done(c,s);render();},err);
+  });
+  db.doc("meta/project").onSnapshot(s=>{state.meta=s.exists?{...s.data()}:{};done("meta",s);render();},err);
+  await db.start();
+})();
+
+async function save(col,id,data){
+  if(!db){toast("Not connected — can't save.");return false}
+  try{ if(id) await db.collection(col).doc(id).set(data); else await db.collection(col).add(data); return true; }
+  catch(e){ if(e&&e.code==="invalid_argument"){canWrite=false;toast("You have view-only access, so changes can't be saved.");} else toast("Couldn't save: "+(e&&e.message||"try again")); return false; }
+}
+async function remove(col,id){
+  try{await db.collection(col).doc(id).delete();return true}catch(e){toast("Couldn't delete.");return false}
+}
+
+// ---------- modal / forms ----------
+function openForm(col,id,preset){
+  const sc=SCHEMA[col]; const rec=id?state[col].find(r=>r.id===id)||{}:{...(preset||{})};
+  const groups={}; let html=`<h3>${id?"Edit":"Add"} ${sc.label}</h3><form id="f">`;
+  const fieldHtml=f=>{
+    const v=rec[f.k]??"";
+    let inp;
+    if(f.t==="select") inp=`<select name="${f.k}">${f.o.map(o=>`<option${o===v?" selected":""}>${esc(o)}</option>`).join("")}</select>`;
+    else if(f.t==="textarea") inp=`<textarea name="${f.k}">${esc(v)}</textarea>`;
+    else inp=`<input name="${f.k}" type="${f.t==="number"?"number":f.t}" ${f.t==="number"?'step="any" inputmode="decimal"':""} value="${esc(v)}" ${f.req?"required":""}>`;
+    return `<div class="fld"><label>${esc(f.l)}</label>${inp}</div>`;
+  };
+  const fs=sc.fields; let i=0;
+  while(i<fs.length){
+    const f=fs[i];
+    if(f.g){const grp=fs.filter(x=>x.g===f.g);html+=`<div class="${grp.length===3?"three":"two"}">${grp.map(fieldHtml).join("")}</div>`;i+=grp.length;}
+    else {html+=fieldHtml(f);i++;}
+  }
+  html+=`<div class="mfoot"><div>${id?`<button type="button" class="btn danger" id="del">Delete</button>`:""}</div>
+  <div style="display:flex;gap:8px"><button type="button" class="btn" id="cancel">Cancel</button><button class="btn pri" type="submit">Save</button></div></div></form>`;
+  $("#modal").innerHTML=html; $("#scrim").classList.add("on");
+  $("#cancel").onclick=closeForm;
+  if(id) $("#del").onclick=async e=>{
+    const b=e.target; if(b.dataset.sure){ if(await remove(col,id)) closeForm(); }
+    else{ b.dataset.sure=1; b.textContent="Tap again to delete"; }
+  };
+  $("#f").onsubmit=async e=>{
+    e.preventDefault(); const fd=new FormData(e.target); const out={};
+    sc.fields.forEach(f=>{let v=fd.get(f.k); if(f.t==="number") v=v===""?null:Number(v); out[f.k]=v;});
+    out.updated=today();
+    if(await save(col,id,out)) closeForm();
+  };
+}
+function closeForm(){$("#scrim").classList.remove("on")}
+$("#scrim").addEventListener("click",e=>{if(e.target.id==="scrim")closeForm()});
+
+// ---------- pills ----------
+function pill(s){
+  const m={"Done":"p-green","Decided":"p-green","Answered":"p-green","Paid":"p-green",
+    "In progress":"p-gold","Exploring":"p-gold","Invoiced":"p-gold","Contracted":"p-sky","Quoted":"p-sky",
+    "Open":"p-terra","Blocked":"p-terra","Not started":"p-grey","Deferred":"p-grey","Estimate":"p-grey"};
+  return s?`<span class="pill ${m[s]||"p-grey"}">${esc(s)}</span>`:"";
+}
+
+// ---------- views ----------
+function totals(){
+  let est=0,com=0,paid=0,fc=0,design=0;
+  state.budget.forEach(b=>{est+=num(b.estimate);com+=num(b.committed);paid+=num(b.paid);fc+=forecast(b);});
+  return {est,com,paid,fc};
+}
+function vOverview(){
+  const t=totals(); const target=num(state.meta.targetBudget);
+  const openDec=state.decisions.filter(d=>d.status==="Open"||d.status==="Exploring");
+  const qUs=state.questions.filter(q=>q.status!=="Answered"&&q.forWhom==="Us");
+  const qFi=state.questions.filter(q=>q.status!=="Answered"&&q.forWhom!=="Us");
+  const ms=[...state.milestones].sort(msSort);
+  const next=ms.filter(m=>m.status!=="Done").slice(0,4);
+  const overdue=ms.filter(m=>m.status!=="Done"&&m.planned&&m.planned<today());
+  const doneN=ms.filter(m=>m.status==="Done").length;
+  const cur=ms.find(m=>m.status==="In progress")||next[0];
+  const scale=Math.max(target,t.fc,1);
+  return `
+  ${target?"":`<div class="warn">No overall budget set yet. Fi's agreement asks you to give her your budget parameters, so this is worth settling early. <button class="btn sm" onclick="editTarget()">Set budget</button></div>`}
+  <div class="grid kpis">
+    <div class="card kpi"><div class="lab">Current phase</div><div class="val" style="font-size:19px">${esc(cur?cur.phase:"—")}</div><div class="note">${esc(cur?cur.title:"")}</div></div>
+    <div class="card kpi"><div class="lab">Paid so far</div><div class="val money">${usd(t.paid)}</div><div class="note">of ${usd(t.com)} committed</div></div>
+    <div class="card kpi"><div class="lab">Open decisions</div><div class="val">${openDec.length}</div><div class="note">${state.decisions.filter(d=>d.status==="Decided").length} decided</div></div>
+    <div class="card kpi"><div class="lab">Milestones</div><div class="val">${doneN}/${ms.length}</div><div class="note">${overdue.length?`<span style="color:var(--red)">${overdue.length} overdue</span>`:"none overdue"}</div></div>
+  </div>
+  <div class="sec card">
+    <div class="sec-h"><h2>Budget</h2><button class="btn sm" onclick="editTarget()">${target?"Edit target":"Set target"}</button></div>
+    <div class="grid kpis" style="gap:6px">
+      <div><div class="small">Target</div><div class="money" style="font-weight:600">${target?usd(target):"Not set"}</div></div>
+      <div><div class="small">Forecast</div><div class="money" style="font-weight:600">${usd(t.fc)}</div></div>
+      <div><div class="small">Committed</div><div class="money" style="font-weight:600">${usd(t.com)}</div></div>
+      <div><div class="small">Paid</div><div class="money" style="font-weight:600">${usd(t.paid)}</div></div>
+    </div>
+    <div class="bar">
+      <span style="width:${t.paid/scale*100}%;background:var(--sage)"></span>
+      <span style="width:${Math.max(0,t.com-t.paid)/scale*100}%;background:#a9bd9f"></span>
+      <span style="width:${Math.max(0,t.fc-t.com)/scale*100}%;background:#e4d6b3"></span>
+    </div>
+    <div class="legend"><span><i style="background:var(--sage)"></i>Paid</span><span><i style="background:#a9bd9f"></i>Committed, not paid</span><span><i style="background:#e4d6b3"></i>Estimated, not committed</span>${target?`<span>Bar = ${t.fc>target?"forecast (over target)":"target"}</span>`:""}</div>
+    <div class="small" style="margin-top:8px">Construction lines are still blank, so the forecast is mostly design fees for now.</div>
+  </div>
+  <div class="sec">
+    <div class="sec-h"><h2>Waiting on us</h2></div>
+    <div class="list">${qUs.map(qRow).join("")}${openDec.filter(d=>d.area==="Budget & scope").map(dRow).join("")}${(!qUs.length&&!openDec.some(d=>d.area==="Budget & scope"))?`<div class="empty">Nothing waiting on you.</div>`:""}</div>
+  </div>
+  <div class="sec">
+    <div class="sec-h"><h2>Coming up</h2><a class="btn sm" href="#schedule" style="text-decoration:none;color:inherit">Schedule</a></div>
+    <div class="list">${next.map(msRow).join("")||`<div class="empty">No upcoming milestones.</div>`}</div>
+  </div>
+  <div class="sec">
+    <div class="sec-h"><h2>Open questions for Fi</h2><span class="small">${qFi.length}</span></div>
+    <div class="list">${qFi.slice(0,5).map(qRow).join("")||`<div class="empty">No open questions.</div>`}</div>
+  </div>`;
+}
+window.editTarget=function(){
+  $("#modal").innerHTML=`<h3>Overall project budget</h3><form id="tf">
+  <div class="fld"><label>Total budget target ($), design + construction</label><input name="t" type="number" step="any" inputmode="decimal" value="${esc(state.meta.targetBudget??"")}"></div>
+  <div class="fld"><label>Notes</label><textarea name="n">${esc(state.meta.budgetNotes??"")}</textarea></div>
+  <div class="mfoot"><div></div><div style="display:flex;gap:8px"><button type="button" class="btn" onclick="closeForm()">Cancel</button><button class="btn pri">Save</button></div></div></form>`;
+  $("#scrim").classList.add("on");
+  $("#tf").onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);
+    const data={...state.meta,targetBudget:fd.get("t")===""?null:Number(fd.get("t")),budgetNotes:fd.get("n")};
+    try{await db.doc("meta/project").set(data);closeForm();}catch(err){toast("Couldn't save.")}};
+};
+window.closeForm=closeForm;
+
+function vBudget(){
+  const cats=SCHEMA.budget.fields.find(f=>f.k==="category").o;
+  const t=totals(); let rows="";
+  cats.forEach(c=>{
+    const items=state.budget.filter(b=>(b.category||"Contingency")===c).sort((a,b)=>(a.item||"").localeCompare(b.item||""));
+    if(!items.length) return;
+    const s=k=>items.reduce((a,b)=>a+num(b[k]),0);
+    rows+=`<tr class="cat"><td>${esc(c)}</td><td class="money">${usd(s("estimate"))}</td><td class="money">${usd(s("committed"))}</td><td class="money">${usd(s("paid"))}</td></tr>`;
+    items.forEach(b=>{rows+=`<tr class="item" data-col="budget" data-id="${esc(b.id)}"><td><div style="font-weight:500">${esc(b.item)}</div><div class="small">${esc(b.vendor||"")}${b.vendor&&b.status?" · ":""}${b.status?pill(b.status):""}</div>${b.notes?`<div class="small pre" style="margin-top:3px">${esc(b.notes)}</div>`:""}</td>
+      <td class="money">${b.estimate!=null&&b.estimate!==""?usd(b.estimate):"—"}</td><td class="money">${num(b.committed)?usd(b.committed):"—"}</td><td class="money">${num(b.paid)?usd(b.paid):"—"}</td></tr>`});
+  });
+  return `<div class="sec-h"><h2>Budget</h2><button class="btn pri" onclick="openForm('budget')">+ Add line</button></div>
+  <p class="small" style="margin-top:-4px">Estimate = best guess. Committed = signed or agreed. Forecast uses committed when there is one, otherwise the estimate. Tap a line to edit.</p>
+  <div class="tbl"><table class="budget"><thead><tr><th>Item</th><th>Estimate</th><th>Committed</th><th>Paid</th></tr></thead>
+  <tbody>${rows||`<tr><td colspan="4"><div class="empty">No budget lines yet.</div></td></tr>`}
+  <tr class="tot"><td>Total <span class="small" style="font-weight:400">· forecast ${usd(t.fc)}</span></td><td class="money">${usd(t.est)}</td><td class="money">${usd(t.com)}</td><td class="money">${usd(t.paid)}</td></tr></tbody></table></div>`;
+}
+const PH=["Setup","Design","Bidding","Construction","Close-out"];
+function msSort(a,b){return (PH.indexOf(a.phase)-PH.indexOf(b.phase))||(num(a.sort)-num(b.sort))||String(a.planned||"9").localeCompare(String(b.planned||"9"))}
+function msRow(m){
+  const cls=m.status==="Done"?"done":m.status==="In progress"?"prog":m.status==="Blocked"?"blk":"";
+  const late=m.status!=="Done"&&m.planned&&m.planned<today();
+  return `<div class="row ${cls}" data-col="milestones" data-id="${esc(m.id)}"><div class="flex"><div><div class="t">${esc(m.title)}</div>
+  <div class="m">${esc(m.owner||"")}${m.planned?` · planned ${fmtD(m.planned)}`:""}${m.actual?` · actual ${fmtD(m.actual)}`:""}${late?` · <span style="color:var(--red)">overdue</span>`:""}</div>
+  ${m.notes?`<div class="m pre">${esc(m.notes)}</div>`:""}</div>${pill(m.status)}</div></div>`;
+}
+function vSchedule(){
+  const ms=[...state.milestones].sort(msSort); let h="";
+  PH.forEach(p=>{const it=ms.filter(m=>(m.phase||"Setup")===p); if(it.length) h+=`<div class="phase">${p}</div><div class="tl">${it.map(msRow).join("")}</div>`;});
+  return `<div class="sec-h"><h2>Schedule</h2><button class="btn pri" onclick="openForm('milestones')">+ Add milestone</button></div>${h||`<div class="empty">No milestones yet.</div>`}`;
+}
+function dRow(d){
+  return `<div class="row" data-col="decisions" data-id="${esc(d.id)}"><div class="flex"><div><div class="small">${esc(d.area||"")}</div><div class="t">${esc(d.title)}</div>
+  ${d.choice?`<div class="m"><b>Chose:</b> ${esc(d.choice)}${num(d.cost)?` · ${usd(d.cost)}`:""}${d.decidedBy?` · ${esc(d.decidedBy)}`:""}${d.date?` · ${fmtD(d.date)}`:""}</div>`:""}
+  ${d.options?`<div class="m pre">${esc(d.options)}</div>`:""}${d.notes?`<div class="m pre" style="font-style:italic">${esc(d.notes)}</div>`:""}</div>${pill(d.status)}</div></div>`;
+}
+function filterBar(key,opts){return `<div class="filters">${opts.map(o=>`<button class="${filt[key]===o?"on":""}" onclick="setF('${key}','${o}')">${o}</button>`).join("")}</div>`}
+window.setF=(k,v)=>{filt[k]=v;render()};
+function vDecisions(){
+  const f=filt.decisions;
+  const areas=SCHEMA.decisions.fields.find(x=>x.k==="area").o;
+  let list=state.decisions.filter(d=>f==="All"||(f==="Active"?(d.status==="Open"||d.status==="Exploring"):d.status===f));
+  list.sort((a,b)=>areas.indexOf(a.area)-areas.indexOf(b.area)||(a.title||"").localeCompare(b.title||""));
+  return `<div class="sec-h"><h2>Decisions &amp; selections</h2><button class="btn pri" onclick="openForm('decisions',null,{status:'Open'})">+ Add</button></div>
+  <p class="small" style="margin-top:-4px">Every design choice, what you picked, what it costs and who signed off. Your record of what was agreed.</p>
+  ${filterBar("decisions",["Active","Decided","Deferred","All"])}
+  <div class="list">${list.map(dRow).join("")||`<div class="empty">Nothing here.</div>`}</div>`;
+}
+function qRow(q){
+  return `<div class="row" data-col="questions" data-id="${esc(q.id)}"><div class="flex"><div><div class="t pre" style="font-weight:500">${esc(q.text)}</div>
+  <div class="m">For ${esc(q.forWhom||"—")}${q.asked?` · raised ${fmtD(q.asked)}`:""}</div>${q.answer?`<div class="m pre"><b>Answer:</b> ${esc(q.answer)}</div>`:""}</div>${pill(q.status)}</div></div>`;
+}
+function vQuestions(){
+  const f=filt.questions; const list=state.questions.filter(q=>f==="All"||q.status===f).sort((a,b)=>String(b.asked||"").localeCompare(String(a.asked||"")));
+  return `<div class="sec-h"><h2>Questions &amp; follow-ups</h2><button class="btn pri" onclick="openForm('questions',null,{status:'Open',forWhom:'Fi',asked:'${today()}'})">+ Add</button></div>
+  <p class="small" style="margin-top:-4px">Things to raise with Fi at the next meeting, and things she's waiting on from you.</p>
+  ${filterBar("questions",["Open","Answered","All"])}
+  <div class="list">${list.map(qRow).join("")||`<div class="empty">Nothing here.</div>`}</div>`;
+}
+function vFiles(){
+  const docs=[...state.documents].sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
+  return `<div class="sec-h"><h2>Files</h2><button class="btn pri" onclick="openForm('documents',null,{date:'${today()}'})">+ Add</button></div>
+  <p class="small" style="margin-top:-4px">A register of every drawing, contract and invoice, so you always know which version is current.</p>
+  <div class="list">${docs.map(d=>`<div class="row" data-col="documents" data-id="${esc(d.id)}"><div class="flex"><div><div class="t">${esc(d.title)}</div>
+    <div class="m">${esc(d.from||"")}${d.date?` · ${fmtD(d.date)}`:""}${d.link&&/^https?:\/\//.test(d.link)?` · <a class="lnk" href="${esc(d.link)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">open</a>`:""}</div>
+    ${d.notes?`<div class="m pre">${esc(d.notes)}</div>`:""}</div>${pill(d.kind)}</div></div>`).join("")||`<div class="empty">No files yet.</div>`}</div>
+  <div class="sec"><div class="sec-h"><h2>Contacts</h2><button class="btn pri" onclick="openForm('contacts')">+ Add</button></div>
+  <div class="list">${state.contacts.map(c=>`<div class="row" data-col="contacts" data-id="${esc(c.id)}"><div class="t">${esc(c.name)} <span class="small" style="font-weight:400">${esc(c.role||"")}</span></div>
+    <div class="m">${esc(c.company||"")}${c.phone?` · ${esc(c.phone)}`:""}${c.email?` · ${esc(c.email)}`:""}</div>${c.notes?`<div class="m pre">${esc(c.notes)}</div>`:""}</div>`).join("")||`<div class="empty">No contacts yet.</div>`}</div></div>`;
+}
+window.openForm=openForm;
+
+const VIEWS={overview:vOverview,budget:vBudget,schedule:vSchedule,decisions:vDecisions,questions:vQuestions,files:vFiles};
+function render(){
+  $("#tabs").style.display=session?"":"none";
+  if(!session){$("#view").innerHTML=vSignin();return;}
+  document.querySelectorAll("#tabs a").forEach(a=>a.classList.toggle("on",a.dataset.v===view));
+  $("#view").innerHTML=VIEWS[view]();
+}
+$("#view").addEventListener("click",e=>{
+  const r=e.target.closest("[data-col][data-id]"); if(!r||e.target.closest("button,a")) return;
+  openForm(r.dataset.col,r.dataset.id);
+});
+function route(){const h=location.hash.slice(1);view=VIEWS[h]?h:"overview";render();window.scrollTo(0,0)}
+window.addEventListener("hashchange",route);
+route();
+</script>
+</body>
+</html>
