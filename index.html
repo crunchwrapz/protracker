@@ -428,7 +428,7 @@ const fmtSize=n=>n>=1048576?(n/1048576).toFixed(1)+" MB":Math.max(1,Math.round(n
 function fileBlock(rec){
   return `<div class="fld"><label>File</label>
   ${rec.file?`<div class="filebox" id="curfile"><span>📎 ${esc(rec.fileName||"file")}${rec.fileSize?` <span class="small">${fmtSize(rec.fileSize)}</span>`:""}</span>
-    <span style="display:flex;gap:6px"><button type="button" class="btn sm" onclick="openFile('${esc(rec.file)}')">Open</button><button type="button" class="btn sm" id="rmfile">Remove</button></span></div>`:""}
+    <span style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn sm" onclick="openFile('${esc(rec.file)}')">Open</button>${rec.id?`<button type="button" class="btn sm" onclick="readWithAI('${esc(rec.id)}')">✨ Read with AI</button>`:""}<button type="button" class="btn sm" id="rmfile">Remove</button></span></div>`:""}
   <input type="file" name="upload" id="upfile">
   <div class="small">${rec.file?"Choosing a new file replaces this one (the old copy stays in storage).":"Up to 50 MB: PDFs, photos, anything."}</div></div>`;
 }
@@ -651,7 +651,7 @@ function vFiles(){
   <p class="small" style="margin-top:-4px">Every drawing, contract and invoice. Tap one to attach or replace its file.</p>
   <div class="list">${docs.map(d=>`<div class="row" data-col="documents" data-id="${esc(d.id)}"><div class="flex"><div><div class="t">${esc(d.title)}</div>
     <div class="m">${esc(d.from||"")}${d.date?` · ${fmtD(d.date)}`:""}${d.link&&/^https?:\/\//.test(d.link)?` · <a class="lnk" href="${esc(d.link)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">link</a>`:""}</div>
-    ${d.file?`<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" onclick="openFile('${esc(d.file)}')">📎 Open ${esc(d.fileName||"file")}${d.fileSize?` · ${fmtSize(d.fileSize)}`:""}</button><button class="btn sm" onclick="readWithAI('${esc(d.id)}')">✨ Read with AI</button></div>`:""}
+    ${d.file?`<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" onclick="openFile('${esc(d.file)}')">📎 Open ${esc(d.fileName||"file")}${d.fileSize?` · ${fmtSize(d.fileSize)}`:""}</button><button class="btn sm" onclick="readWithAI('${esc(d.id)}')">✨ Read with AI</button></div>`:`<div class="small" style="margin-top:6px">No file attached yet. Tap to attach one.</div>`}
     ${d.notes?`<div class="m pre">${esc(d.notes)}</div>`:""}</div>${pill(d.kind)}</div></div>`).join("")||`<div class="empty">No files yet.</div>`}</div>
   <div class="sec"><div class="sec-h"><h2>Contacts</h2><button class="btn pri" onclick="openForm('contacts')">+ Add</button></div>
   <div class="list">${state.contacts.map(c=>`<div class="row" data-col="contacts" data-id="${esc(c.id)}"><div class="t">${esc(c.name)} <span class="small" style="font-weight:400">${esc(c.role||"")}</span></div>
