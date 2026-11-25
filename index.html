@@ -490,7 +490,7 @@ window.readWithAI=async (id,again)=>{
   }
   aiReady[id]={documentId:id,title:d.title,...data}; render();
   if(watching){aiResult=aiReady[id];renderReview();}
-  else toast(`Suggestions are ready for “${d.title}”.`);
+  else toast(`Suggestions are ready for “${d.title}”. Open it in Files to see them.`);
 };
 function renderReview(){
   const r=aiResult, ch=r.changes||[]; const colLabel=c=>SCHEMA[c]?SCHEMA[c].label:c;
@@ -670,7 +670,7 @@ function vFiles(){
   <p class="small" style="margin-top:-4px">Every drawing, contract and invoice. Tap one to attach or replace its file.</p>
   <div class="list">${docs.map(d=>`<div class="row" data-col="documents" data-id="${esc(d.id)}"><div class="flex"><div><div class="t">${esc(d.title)}</div>
     <div class="m">${esc(d.from||"")}${d.date?` · ${fmtD(d.date)}`:""}${d.link&&/^https?:\/\//.test(d.link)?` · <a class="lnk" href="${esc(d.link)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">link</a>`:""}</div>
-    ${d.file?`<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" onclick="openFile('${esc(d.file)}')">📎 Open ${esc(d.fileName||"file")}${d.fileSize?` · ${fmtSize(d.fileSize)}`:""}</button>${aiButton(d.id)}</div>`:`<div class="small" style="margin-top:6px">No file attached yet. Tap to attach one.</div>`}
+    ${d.file?`<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" onclick="openFile('${esc(d.file)}')">📎 Open ${esc(d.fileName||"file")}${d.fileSize?` · ${fmtSize(d.fileSize)}`:""}</button>${aiBusy.has(d.id)?`<span class="small" style="align-self:center">⏳ Reading with AI…</span>`:aiReady[d.id]?`<span class="small" style="align-self:center;color:var(--sage)">✨ Suggestions ready. Tap to see them.</span>`:""}</div>`:`<div class="small" style="margin-top:6px">No file attached yet. Tap to attach one.</div>`}
     ${d.notes?`<div class="m pre">${esc(d.notes)}</div>`:""}</div>${pill(d.kind)}</div></div>`).join("")||`<div class="empty">No files yet.</div>`}</div>
   <div class="sec"><div class="sec-h"><h2>Contacts</h2><button class="btn pri" onclick="openForm('contacts')">+ Add</button></div>
   <div class="list">${state.contacts.map(c=>`<div class="row" data-col="contacts" data-id="${esc(c.id)}"><div class="t">${esc(c.name)} <span class="small" style="font-weight:400">${esc(c.role||"")}</span></div>
